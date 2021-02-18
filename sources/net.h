@@ -5,24 +5,39 @@
 /* structure */
 #define DEFAULT_RECV_BUFFER_LENGTH			65536
 typedef struct {
+	//0x00
 	u_short	peer;		/* descripion of the buffer, recv from whom? */
+	//0x02
 	u_short	reserved;
+	//0x04
 	u_char	*lpHead;	/* pointer to the first byte of the valid data */
+	//0x08
 	u_char	*lpTail;	/* pointer to the next byte of the last legal data */
+	//0x0C
 	u_int	length;		/* legal data length in bytes */
+	//0x10
 	u_int	rest;		/* the rest avalible bytes to the end of the buffer */
+	//0x14
 	u_char	data[DEFAULT_RECV_BUFFER_LENGTH];
 } NETRECVBUFFER, *PNETRECVBUFFER, *LPNETRECVBUFFER;
 
 #define DEFAULT_SEND_BUFFER_LENGTH			1024*1024
 typedef struct {
+	//00
 	u_short	peer;		/* descripion of the buffer, recv from whom? */
+	//02
 	u_short	reserved;
+	//04
 	u_char	*lpHead;	/* pointer to the first byte of the valid data */
+	//08
 	u_char	*lpTail;	/* pointer to the next byte of the last legal data */
+	//0c
 	u_int	length;		/* legal data length in bytes */
+	//10
 	u_int	rest;		/* the rest avalible bytes to the end of the buffer */
+	//14
 	u_int	writable;	/* if the socket is writable */
+	//18
 	u_char	data[DEFAULT_SEND_BUFFER_LENGTH];
 } NETSENDBUFFER, *PNETSENDBUFFER, *LPNETSENDBUFFER;
 

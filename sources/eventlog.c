@@ -23,9 +23,11 @@ int D2GSEventLogInitialize(void)
 	eventstrm = fopen("d2gs.log", "a");
 	gestrm    = fopen("d2ge.log", "a");
 
+#if DEBUG
 	/* for debug, used by hexdump.c */
 	hexstrm = fopen("debug.log", "a");
 	if (!hexstrm) return FALSE;
+#endif
 
 	if (eventstrm && gestrm) return TRUE;
 	else return FALSE;
@@ -42,11 +44,11 @@ void D2GSEventLogCleanup(void)
 	if (eventstrm) fclose(eventstrm);
 	if (gestrm) fclose(gestrm);
 
-#ifdef DEBUG
+#if DEBUG
 	if (hexstrm) fclose(hexstrm);
 #endif
 
-	eventstrm = gestrm = NULL;
+	hexstrm = eventstrm = gestrm = NULL;
 
 	return;
 
@@ -63,10 +65,11 @@ void D2GSEventLog(char const * module, char const * fmt, ...)
 	char		time_string[EVENT_TIME_MAXLEN];
 	SYSTEMTIME	st;
     
+	if (!d2gsconf.enablegslog) return;
 	if (!eventstrm) return;
 
 	GetLocalTime(&st);
-	sprintf(time_string, "%02d/%02d %02d:%02d:%02d.%03d", st.wMonth, st.wDay,
+	sprintf(time_string, "%02u/%02u %02u:%02u:%02u.%03u", st.wMonth, st.wDay,
 		st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
     
 	if (!module) {
@@ -120,7 +123,7 @@ void D2GEEventLog(char const * module, char const * fmt, ...)
 	if (!gestrm) return;
 
 	GetLocalTime(&st);
-	sprintf(time_string, "%02d/%02d %02d:%02d:%02d.%03d", st.wMonth, st.wDay,
+	sprintf(time_string, "%02u/%02u %02u:%02u:%02u.%03u", st.wMonth, st.wDay,
 		st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
     
 	if (!module) {
@@ -174,7 +177,7 @@ void LogAP(LPCSTR lpModule, LPCSTR lpFormat, va_list ap)
 	if (!d2gsconf.enablegemsg) return;
 	if (!lpModule || !lpFormat)  return;
 	GetLocalTime(&st);
-	len = wsprintf(msg, "%02d/%02d %02d:%02d:%02d.%03d", st.wMonth, st.wDay,
+	len = wsprintf(msg, "%02u/%02u %02u:%02u:%02u.%03u", st.wMonth, st.wDay,
 		st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
 	len += vsprintf(tmp, lpFormat, ap);
 	strcat(msg, tmp);
@@ -196,7 +199,7 @@ void LogAP(LPCSTR lpModule, LPCSTR lpFormat, va_list ap)
  *********************************************************************/
 void PortraitDump(LPCSTR lpAccountName, LPCSTR lpCharName, LPCSTR lpCharPortrait)
 {
-#ifndef DEBUG
+#if !DEBUG
 
 	return;
 

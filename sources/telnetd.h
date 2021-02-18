@@ -27,6 +27,7 @@
 /* Types */
 typedef struct {
 	char	*keyword;
+	BOOL	disable;
 	void	(*adminfunc)(unsigned int, u_char *);
 	char	*param;
 	char	*annotation;
@@ -61,6 +62,9 @@ void admin_chgpasswd(unsigned int ns, u_char *param);
 void admin_kick_user(unsigned int ns, u_char *param);
 void admin_msg(unsigned int ns, u_char *param);
 void admin_setmotd(unsigned int ns, u_char *param);
-
-
+void admin_setmaxpreferusers(unsigned int ns, u_char* param);
+void admin_setcpumask(unsigned int ns, u_char* param);
+void admin_reloadconf(unsigned int ns, u_char* param);
+void admin_showwe(unsigned int ns, u_char* param);
+void admin_enablegslog(unsigned int ns, u_char* param);
 #endif /* INCLUDED_TELNETD_H */

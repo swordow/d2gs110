@@ -9,6 +9,9 @@
 #include "callback.h"
 #include "vars.h"
 
+DWORD		D2GEVersion;
+
+static	char gD2GS_VERSION_STRING[256] = { 0 };
 
 /* functions in d2server.dll, got by QueryInterface() */
 D2GSStartFunc		 			D2GSStart;
@@ -17,13 +20,17 @@ D2GSRemoveClientFromGameFunc	D2GSRemoveClientFromGame;
 D2GSNewEmptyGameFunc			D2GSNewEmptyGame;
 D2GSEndAllGamesFunc				D2GSEndAllGames;
 D2GSSendClientChatMessageFunc	D2GSSendClientChatMessage;
-
+D2GSSetTickCountFunc			D2GSSetTickCount;
+D2GSSetACDataFunc				D2GSSetACData;
+D2GSLoadConfigFunc				D2GSLoadConfig;
+D2GSAfterEndFunc				D2GSAfterEnd;
+D2GSInitConfigFunc				D2GSInitConfig;
+D2GSCheckTickCountFunc			D2GSCheckTickCount;
 
 /* variables */
-static D2GSINFO					gD2GSInfo;
+D2GSINFO						gD2GSInfo;
 static HANDLE					ghServerThread;
-
-
+static HMODULE					gD2ServerDll;
 /*********************************************************************
  * Purpose: to startup the D2 Game Engine
  * Return: TRUE(success) or FALSE(failed)
@@ -52,16 +59,26 @@ int D2GEStartup(void)
 		return FALSE;
 	}
 	dwWait = WaitForSingleObject(hEvent, D2GE_INIT_TIMEOUT);
-	if (dwWait!=WAIT_OBJECT_0) {
-		CloseHandle(hEvent);
+	CloseHandle(hEvent);
+
+	if (dwWait != WAIT_OBJECT_0) 
+	{
+		CloseHandle(ghServerThread);
 		return FALSE;
 	}
 
-	CloseHandle(hEvent);
+	if (bGERunning == 0)
+	{
+		CloseHandle(ghServerThread);
+		return FALSE;
+	}
 
-	if (CleanupRoutineInsert(D2GECleanup, "Diablo II Game Engine")) {
+	if (CleanupRoutineInsert(D2GECleanup, "Diablo II Game Engine")) 
+	{
 		return TRUE;
-	} else {
+	} 
+	else 
+	{
 		/* do some cleanup before quiting */
 		D2GECleanup();
 		return FALSE;
@@ -76,12 +93,32 @@ int D2GEStartup(void)
  *********************************************************************/
 int D2GECleanup(void)
 {
-	D2GSEndAllGames();
+	D2GSEndAllGamesWrapper();
+	
+	Sleep(0x3E8);
+	D2GSAfterEndWrapper();
+
 	gD2GSInfo.bStop = TRUE;
 	if (ghServerThread) {
 		WaitForSingleObject(ghServerThread, D2GE_SHUT_TIMEOUT);
 		CloseHandle(ghServerThread);
 		ghServerThread = NULL;
+
+		D2GSSendDatabaseCharacter = 0;
+		D2GSRemoveClientFromGame = 0;
+		D2GSNewEmptyGame = 0;
+		D2GSEndAllGames = 0;
+		D2GSSendClientChatMessage = 0;
+		D2GSSetTickCount = 0;
+		D2GSSetACData = 0;
+		// unknow here
+		//
+		D2GSLoadConfig = 0;
+		D2GSAfterEnd = 0;
+		D2GSInitConfig = 0;
+		// unknow 2 here
+		//
+		//
 	}
 
 	return TRUE;
@@ -99,8 +136,9 @@ int D2GEThreadInit(void)
 		D2GSEventLog("D2GSThread", "Failed to Get Server Interface");
 		return FALSE;
 	}
-
-	gD2GSInfo.szVersion				= D2GS_VERSION_STRING;
+	ZeroMemory(&gD2GSInfo, sizeof(gD2GSInfo));
+	strcpy(gD2GS_VERSION_STRING, D2GS_VERSION_STRING);
+	gD2GSInfo.szVersion				= gD2GS_VERSION_STRING;
 	gD2GSInfo.dwLibVersion			= D2GS_LIBRARY_VERSION;
 	gD2GSInfo.bIsNT					= d2gsconf.enablentmode;
 	gD2GSInfo.bEnablePatch			= d2gsconf.enablegepatch;
@@ -111,7 +149,7 @@ int D2GEThreadInit(void)
 	gD2GSInfo.dwIdleSleep			= d2gsconf.idlesleep;
 	gD2GSInfo.dwBusySleep			= d2gsconf.busysleep;
 	gD2GSInfo.dwMaxGame				= d2gsconf.gemaxgames;
-	gD2GSInfo.dwProcessAffinityMask = d2gsconf.multicpumask;
+	gD2GSInfo.dwMaxPacketPerSecond  = d2gsconf.maxpacketpersecond;//d2gs use maxpacketpersecond, ithink it is bug
 	return TRUE;
 
 } /* D2GEThreadInit() */
@@ -121,19 +159,34 @@ int D2GEThreadInit(void)
  * Purpose: to set the GE interface
  * Return: TRUE(success) or FALSE(failed)
  *********************************************************************/
+typedef LPD2GSINTERFACE(*QueryInterfaceProc)();
 static BOOL D2GSGetInterface(void)
 {
 	LPD2GSINTERFACE		lpD2GSInterface;
-
+	/*QueryInterfaceProc  QIProc;
+	gD2ServerDll = LoadLibrary("d2server.dll");
+	if (gD2ServerDll == INVALID_HANDLE_VALUE)
+	{
+		return FALSE;
+	}
+	QIProc = (QueryInterfaceProc)GetProcAddress(gD2ServerDll, "QueryInterface");
+	lpD2GSInterface = QIProc();*/
 	lpD2GSInterface = QueryInterface();
 	if (!lpD2GSInterface) return FALSE;
 
+	gD2GEVersionString			= lpD2GSInterface->D2GSVerInfo;
 	D2GSStart					= lpD2GSInterface->D2GSStart;
 	D2GSSendDatabaseCharacter	= lpD2GSInterface->D2GSSendDatabaseCharacter;
 	D2GSRemoveClientFromGame	= lpD2GSInterface->D2GSRemoveClientFromGame;
 	D2GSNewEmptyGame			= lpD2GSInterface->D2GSNewEmptyGame;
 	D2GSEndAllGames				= lpD2GSInterface->D2GSEndAllGames;
 	D2GSSendClientChatMessage	= lpD2GSInterface->D2GSSendClientChatMessage;
+	D2GSSetTickCount			= lpD2GSInterface->D2GSSetTickCount;
+	D2GSSetACData				= lpD2GSInterface->D2GSSetACData;
+	D2GSLoadConfig				= lpD2GSInterface->D2GSLoadConfig;
+	D2GSAfterEnd				= lpD2GSInterface->D2GSAfterEnd;
+	D2GSInitConfig				= lpD2GSInterface->D2GSInitConfig;
+	D2GSCheckTickCount			= lpD2GSInterface->D2GSCheckTickCount;
 
 	return TRUE;
 
@@ -146,15 +199,17 @@ static BOOL D2GSGetInterface(void)
  *********************************************************************/
 static DWORD __stdcall D2GSErrorHandle(void)
 {
-	D2GSEventLog("D2GSErrorHandle", "Error occur, exiting...\n\n");
 
 #ifdef DEBUG_ON_CONSOLE
 	printf("Press Any Key to Continue");
 	_getch();
 #endif
+	d2gsconf.enablegslog = 1;
+	D2GSEventLog("D2GSErrorHandle", "Error occur, exiting...\n\n");
+	d2gsconf.enablegslog = 0;
 
 	CloseServerMutex();
-	ExitProcess(0);
+	D2GSShutdown(0);
 	return 0;
 
 } /* End of D2GSErrorHandle() */
@@ -184,7 +239,6 @@ DWORD WINAPI D2GEThread(LPVOID lpParameter)
 		SetEvent(hEvent);
 		return FALSE;
 	}
-
 	hObjects[1] = CreateThread(NULL, 0, D2GSStart, &gD2GSInfo, 0, &dwThreadId);
 	if (!hObjects[1]) {
 		D2GSEventLog("D2GEThread", "Error Creating Server Thread. Code: %lu", GetLastError());
@@ -210,6 +264,8 @@ DWORD WINAPI D2GEThread(LPVOID lpParameter)
 		D2GSEventLog("D2GEThread", "Game Server Thread Start Successfully");
 		SetEvent(hEvent);
 		bGERunning = TRUE;
+		hGEThread = hObjects[1];
+		SetThreadAffinityMask(hObjects[1], d2gsconf.multicpumask);
 	} else {
 		D2GSEventLog("D2GEThread", "Wait Server Thread Returned %d", dwRetval);
 		SetEvent(hEvent);
@@ -218,6 +274,8 @@ DWORD WINAPI D2GEThread(LPVOID lpParameter)
 	CloseHandle(hObjects[0]);
 	CloseHandle(hObjects[1]);
 	bGERunning = FALSE;
+	hGEThread = NULL;
+	D2GSEventLog("D2GEThread", "Game Engine Thread terminated");
 	return TRUE;
 
 } /* End of D2GEThread */

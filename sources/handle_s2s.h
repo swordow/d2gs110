@@ -24,12 +24,12 @@ DWORD D2GSGetCheckSum(void);
 void D2GSSendClassToD2CS(void);
 void D2GSSendClassToD2DBS(void);
 void D2GSHandleS2SPacket(D2GSPACKET *lpPacket);
-void D2GSAuthreq(LPVOID *lpdata);
-void D2GSAuthReply(LPVOID *lpdata);
+void D2GSAuthreq(int peer, LPVOID lpdata);
+void D2GSAuthReply(int peer, LPVOID lpdata);
 void D2GSSetD2CSMaxGameNumber(DWORD maxgamenum);
-void D2XSEchoReply(int peer);
-void D2CSCreateEmptyGame(LPVOID *lpdata);
-void D2CSClientJoinGameRequest(LPVOID *lpdata);
+void D2XSEchoReply(int peer, LPVOID  lpdata);
+void D2CSCreateEmptyGame(int peer, LPVOID lpdata);
+void D2CSClientJoinGameRequest(int peer, LPVOID lpdata);
 
 /* by callback function */
 BOOL D2GSCBFindPlayerToken(LPCSTR lpCharName, DWORD dwToken, WORD wGameId,
@@ -58,10 +58,17 @@ void D2GSUpdateCharacterLadder(LPCSTR lpCharName, WORD wCharClass, DWORD dwCharL
 void D2GSLoadComplete(WORD wGameId, LPCSTR lpCharName, BOOL bExpansion);
 
 /* by d2dbs */
-void D2DBSSaveDataReply(LPVOID *lpdata);
-void D2DBSGetDataReply(LPVOID *lpdata);
+void D2DBSSaveDataReply(int peer, LPVOID lpdata);
+void D2DBSGetDataReply(int peer, LPVOID lpdata);
 void D2GSSetCharLockStatus(LPCSTR lpAccountName, LPCSTR lpCharName, UCHAR *RealmName, DWORD CharLockStatus);
 void D2GSUnlockChar(LPCSTR lpAccountName, LPCSTR lpCharName);
 
+// 110 add
+void D2GSSetControl(int peer, LPVOID  lpPacketData);
+void D2GSSetGameInfoByD2CS(int peer, LPVOID  lpPacketData);
+void D2GSSetInitInfo(int peer, LPVOID  lpPacketData);
+void D2GSSetConfFile(int peer, LPVOID  lpPacketData);
+void D2GSSetDifficultyCount(int difficulty, int R0/*=0*/, int R1/*=0xFFFFFFFF*/);
+void UpdateMaxPreferUsers();
 
 #endif /* INCLUDED_HANDLE_S2S_H */

@@ -4,231 +4,169 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "d2gs.h"
+#include "d2ge.h"
 #include "config.h"
 #include "eventlog.h"
 #include "vars.h"
 
 
+char		gSomeBuffer[2048] = { 0 };
+char		gInitConfMsg[256] = { 0 };
 /*********************************************************************
  * Purpose: to read configurations to the D2GSCONFIGS structure
  * Return: TRUE(success) or FALSE(failed)
  *********************************************************************/
-int D2GSReadConfig(void)
+typedef struct ConfigMap
+{
+	const char* KeyName;
+	DWORD		Type;// 0-9
+	const char* DefaultValue;
+	void*		ValuePtr;
+}ConfigMap;
+
+static ConfigMap gConfigMap[] =
+{
+	{REGKEY_D2CSIP					, 04, "192.168.1.1", d2gsconf.d2csipstr},
+	{REGKEY_D2CSIP					, 10, "192.168.1.1", &d2gsconf.d2csip},
+	{REGKEY_D2CSPORT				, 9, "6113"		,&d2gsconf.d2csport},
+	{REGKEY_D2DBSIP					, 04, "192.168.1.1" , d2gsconf.d2csipstr},
+	{REGKEY_D2DBSIP					, 10, "192.168.1.1" , &d2gsconf.d2dbsip},
+	{REGKEY_D2DBSPORT				, 9, "6114"		, &d2gsconf.d2dbsport},
+	{REGKEY_ENABLENTMODE			, 01, "1"			, &d2gsconf.enablentmode},
+	{REGKEY_ENABLEGEPATCH			, 01, "1"			, &d2gsconf.enablegepatch},
+	{REGKEY_ENABLEPRECACHEMODE		, 01, "1"			, &d2gsconf.enableprecachemode},
+	{REGKEY_ENABLEGELOG				, 01, "0"			, &d2gsconf.enablegelog},
+	{REGKEY_ENABLEGEMSG				, 01, "0"			, &d2gsconf.enablegemsg},
+	{REGKEY_ENABLEGSLOG				, 01, "1"			, &d2gsconf.enablegslog},
+	{REGKEY_DEBUGNETPACKET			, 01, "0"			, &d2gsconf.debugnetpacket},
+	{REGKEY_DEBUGEVENTCALLBACK		, 01, "0"			, &d2gsconf.debugeventcallback},
+	{REGKEY_IDLESLEEP				, 03, "1"			, &d2gsconf.idlesleep},
+	{REGKEY_BUSYSLEEP				, 03, "1"			, &d2gsconf.busysleep},
+	{REGKEY_MAXGAMES				, 03, "5"			, &d2gsconf.gsmaxgames},
+	{REGKEY_MAXPREFERUSERS			, 03, "0"			, &d2gsconf.maxpreferusers},
+	{REGKEY_MAXGAMELIFE				, 03, "36000"		, &d2gsconf.maxgamelife},
+	{REGKEY_MOTD					, 04, "No commercial Purpose!", &d2gsconf.motd},
+	{REGKEY_CHARPENDINGTIMEOUT		, 03, "200"			, &d2gsconf.charpendingtimeout},
+	{REGKEY_INTERVALRECONNECTD2CS	, 03, "50"			, &d2gsconf.intervalreconnectd2cs},
+	{REGKEY_D2CSSECRECT				, 04, gSomeBuffer , d2gsconf.d2cssecrect},
+	{REGKEY_MULTICPUMASK			, 03, "1"			, &d2gsconf.multicpumask},
+	{REGKEY_MAX_PACKET_PER_SECOND   , 03, "300"			, &d2gsconf.maxpacketpersecond},
+	{REGKEY_SERVER_CONF_FILE		, 04, "D2Server.ini", d2gsconf.serverconffile},
+	{REGKEY_ADMINPWD				, 04, "9e75a42100e1b9e0b5d3873045084fae699adcb0", d2gsconf.adminpwd},
+	{REGKEY_ADMINPORT				, 9, "8888"			, &d2gsconf.adminport},
+	{REGKEY_ADMINTIMEOUT			, 03, "600"			, &d2gsconf.admintimeout},
+	{REGKEY_AUTOUPDATE				, 01, "0"			, &gAutoUpdate.AutoUpdate},
+	{REGKEY_AUTOUPDATE_TIMEOUT		, 03, "30000"		, &gAutoUpdate.AutoUpdateTimeout},
+	{REGKEY_AUTOUPDATEVER			, 03, "0"			, &gAutoUpdate.AutoUpdateVer},
+	{REGKEY_AUTOUPDATE_URL			, 04, gSomeBuffer	, gAutoUpdate.AutoUpdateUrl},
+	{0,0,0,0}
+};
+
+int D2GSLoadConfigFromReg(HKEY key, LPCSTR lpSubKey, ConfigMap* confs)
 {
 	HKEY		hKey;
 	BOOL		result;
 	u_long		ipaddr;
 	DWORD		dwval;
+	ConfigMap*  item = 0;
 	char		strbuf[256];
 
-	result = FALSE;
-	if (!RegkeyOpen(HKEY_LOCAL_MACHINE, REGKEY_ROOT, &hKey, KEY_READ)) {
-		D2GSEventLog("D2GSReadConfig", "Can't open registry key '\\\\HKEY_LOCAL_MACHINE\\%s'", REGKEY_ROOT);
-		return result;
-	}
-
-	/* D2CSIP */
-	if (!RegkeyReadString(hKey, REGKEY_D2CSIP, strbuf, sizeof(strbuf))) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s'", REGKEY_D2CSIP);
-		goto tocloseregkey;
-	}
-	ipaddr = inet_addr(strbuf);
-	if (ipaddr==INADDR_NONE) {
-		D2GSEventLog("D2GSReadConfig", "Invalid D2CSIP '%s'", strbuf);
-		goto tocloseregkey;
-	}
-	d2gsconf.d2csip = ipaddr;
-
-	/* D2DBSIP */
-	if (!RegkeyReadString(hKey, REGKEY_D2DBSIP, strbuf, sizeof(strbuf))) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s'", REGKEY_D2DBSIP);
-		goto tocloseregkey;
-	}
-	ipaddr = inet_addr(strbuf);
-	if (ipaddr==INADDR_NONE) {
-		D2GSEventLog("D2GSReadConfig", "Invalid D2DBSIP '%s'", strbuf);
-		goto tocloseregkey;
-	}
-	d2gsconf.d2dbsip = ipaddr;
-
-	/* D2CSPORT */
-	if (!RegkeyReadDWORD(hKey, REGKEY_D2CSPORT, &dwval)) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s', set to default %d",
-				REGKEY_D2CSPORT, DEFAULT_D2CS_PORT);
-		d2gsconf.d2csport = DEFAULT_D2CS_PORT;
-	} else
-		d2gsconf.d2csport = htons((u_short)dwval);
-
-	/* D2DBSPORT */
-	if (!RegkeyReadDWORD(hKey, REGKEY_D2DBSPORT, &dwval)) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s', set to default %d",
-				REGKEY_D2DBSPORT, DEFAULT_D2DBS_PORT);
-		d2gsconf.d2csport = DEFAULT_D2DBS_PORT;
-	} else
-		d2gsconf.d2dbsport = htons((short)dwval);
-
-	/* MAXGAMES */
-	if (!RegkeyReadDWORD(hKey, REGKEY_MAXGAMES, &dwval)) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s', set to default %d",
-				REGKEY_MAXGAMES, DEFAULT_MAX_GAMES);
-		d2gsconf.gsmaxgames = DEFAULT_MAX_GAMES;
-	} else
-		d2gsconf.gsmaxgames = dwval;
-	d2gsconf.gemaxgames = d2gsconf.gsmaxgames*2+100;
-
-	/* ENABLENTMODE */
-	if (!RegkeyReadDWORD(hKey, REGKEY_ENABLENTMODE, &dwval)) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s', set to default %d",
-				REGKEY_ENABLENTMODE, DEFAULT_NT_MODE);
-		d2gsconf.enablentmode = DEFAULT_NT_MODE;
-	} else
-		d2gsconf.enablentmode = (BOOL)dwval;
-
-	/* ENABLEGEPATCH */
-	if (!RegkeyReadDWORD(hKey, REGKEY_ENABLEGEPATCH, &dwval)) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s', set to default %d",
-				REGKEY_ENABLEGEPATCH, DEFAULT_GE_PATCH);
-		d2gsconf.enablegepatch = DEFAULT_GE_PATCH;
-	} else
-		d2gsconf.enablegepatch = (BOOL)dwval;
-
-	/* ENABLEPRECACHEMODE */
-	if (!RegkeyReadDWORD(hKey, REGKEY_ENABLEPRECACHEMODE, &dwval)) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s', set to default %d",
-				REGKEY_ENABLEPRECACHEMODE, DEFAULT_PRECACHE_MODE);
-		d2gsconf.enableprecachemode = DEFAULT_PRECACHE_MODE;
-	} else
-		d2gsconf.enableprecachemode = (BOOL)dwval;
-
-	/* ENABLEGELOG */
-	if (!RegkeyReadDWORD(hKey, REGKEY_ENABLEGELOG, &dwval)) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s', set to default %d",
-				REGKEY_ENABLEGELOG, DEFAULT_GE_LOG);
-		d2gsconf.enablegelog = DEFAULT_GE_LOG;
-	} else
-		d2gsconf.enablegelog = (BOOL)dwval;
-
-	/* ENABLEGEMSG */
-	if (!RegkeyReadDWORD(hKey, REGKEY_ENABLEGEMSG, &dwval)) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s', set to default %d",
-				REGKEY_ENABLEGEMSG, DEFAULT_GE_MSG);
-		d2gsconf.enablegemsg = DEFAULT_GE_MSG;
-	} else
-		d2gsconf.enablegemsg = (BOOL)dwval;
-
-	/* DEBUGNETPACKET */
-	if (!RegkeyReadDWORD(hKey, REGKEY_DEBUGNETPACKET, &dwval)) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s', set to default %d",
-				REGKEY_DEBUGNETPACKET, DEFAULT_DEBUGNETPACKET);
-		d2gsconf.debugnetpacket = DEFAULT_DEBUGNETPACKET;
-	} else
-		d2gsconf.debugnetpacket = (BOOL)dwval;
-
-	/* DEBUGEVENTCALLBACK */
-	if (!RegkeyReadDWORD(hKey, REGKEY_DEBUGEVENTCALLBACK, &dwval)) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s', set to default %d",
-				REGKEY_DEBUGEVENTCALLBACK, DEFAULT_DEBUGEVENTCALLBACK);
-		d2gsconf.debugeventcallback = DEFAULT_DEBUGEVENTCALLBACK;
-	} else
-		d2gsconf.debugeventcallback = (BOOL)dwval;
-
-	/* IDLESLEEP */
-	if (!RegkeyReadDWORD(hKey, REGKEY_IDLESLEEP, &dwval)) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s', set to default %d",
-				REGKEY_IDLESLEEP, DEFAULT_IDLE_SLEEP);
-		d2gsconf.idlesleep = DEFAULT_IDLE_SLEEP;
-	} else
-		d2gsconf.idlesleep = dwval;
-
-	/* BUSYSLEEP */
-	if (!RegkeyReadDWORD(hKey, REGKEY_BUSYSLEEP, &dwval)) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s', set to default %d",
-				REGKEY_BUSYSLEEP, DEFAULT_BUSY_SLEEP);
-		d2gsconf.busysleep = DEFAULT_BUSY_SLEEP;
-	} else
-		d2gsconf.busysleep = dwval;
-
-	/* CHARPENDINGTIMEOUT */
-	if (!RegkeyReadDWORD(hKey, REGKEY_CHARPENDINGTIMEOUT, &dwval)) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s', set to default %d",
-				REGKEY_CHARPENDINGTIMEOUT, DEFAULT_CHARPENDINGTIMEOUT);
-		d2gsconf.charpendingtimeout = DEFAULT_CHARPENDINGTIMEOUT;
-	} else
-		d2gsconf.charpendingtimeout = dwval;
-
-	/* INTERVALRECONNECTD2CS */
-	if (!RegkeyReadDWORD(hKey, REGKEY_INTERVALRECONNECTD2CS, &dwval)) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s', set to default %d",
-				REGKEY_INTERVALRECONNECTD2CS, DEFAULT_INTERVALRECONNECTD2CS);
-		d2gsconf.intervalreconnectd2cs = DEFAULT_INTERVALRECONNECTD2CS;
-	} else
-		d2gsconf.intervalreconnectd2cs = dwval;
-
-	/* ADMINPWD */
-	ZeroMemory(d2gsconf.adminpwd, sizeof(d2gsconf.adminpwd));
-	if (!RegkeyReadString(hKey, REGKEY_ADMINPWD, strbuf, sizeof(strbuf))) {
-		strcpy(d2gsconf.adminpwd, "d2gsdmin");
-	} else
-		strncpy(d2gsconf.adminpwd, strbuf, sizeof(d2gsconf.adminpwd)-1);
-
-	/* D2CSSECRECT */
-	ZeroMemory(d2gsconf.d2cssecrect, sizeof(d2gsconf.d2cssecrect));
-	if (!RegkeyReadString(hKey, REGKEY_D2CSSECRECT, strbuf, sizeof(strbuf))) {
-		strcpy(d2gsconf.d2cssecrect, "");
-	} else
-		strncpy(d2gsconf.d2cssecrect, strbuf, sizeof(d2gsconf.d2cssecrect)-1);
-
-	/* ADMINPORT */
-	if (!RegkeyReadDWORD(hKey, REGKEY_ADMINPORT, &dwval)) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s', set to default %d",
-				REGKEY_ADMINPORT, DEFAULT_ADMIN_PORT);
-		d2gsconf.adminport = DEFAULT_D2DBS_PORT;
-	} else
-		d2gsconf.adminport = htons((short)dwval);
-
-	/* ADMINTIMEOUT */
-	if (!RegkeyReadDWORD(hKey, REGKEY_ADMINTIMEOUT, &dwval)) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s', set to default %d",
-				REGKEY_ADMINTIMEOUT, DEFAULT_ADMIN_TIMEOUT);
-		d2gsconf.admintimeout = DEFAULT_ADMIN_TIMEOUT;
-	} else
-		d2gsconf.admintimeout = dwval;
-
-	/* MAXGAMELIFE */
-	if (!RegkeyReadDWORD(hKey, REGKEY_MAXGAMELIFE, &dwval)) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s', set to default %d",
-				REGKEY_MAXGAMELIFE, DEFAULT_MAXGAMELIFE);
-		d2gsconf.maxgamelife = DEFAULT_MAXGAMELIFE;
-	} else
-		d2gsconf.maxgamelife = dwval;
-
-	/* GSSHUTDOWNINTERVAL */
-	if (!RegkeyReadDWORD(hKey, REGKEY_GSSHUTDOWNINTERVAL, &dwval)) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s', set to default %d",
-				REGKEY_GSSHUTDOWNINTERVAL, DEFAULT_GS_SHUTDOWN_INTERVAL);
-		d2gsconf.gsshutdowninterval = DEFAULT_GS_SHUTDOWN_INTERVAL;
-	} else
-		d2gsconf.gsshutdowninterval = dwval;
-
-	/* MULTICPUMASK */
-	if (!RegkeyReadDWORD(hKey, REGKEY_MULTICPUMASK, &dwval)) {
-		D2GSEventLog("D2GSReadConfig", "Can't read key '%s', set to default %d",
-				REGKEY_MULTICPUMASK, DEFAULT_MULTICPUMASK);
-		d2gsconf.multicpumask = DEFAULT_MULTICPUMASK;
-	} else
-		d2gsconf.multicpumask = dwval;
-
-	/* MOTD */
-	ZeroMemory(d2gsconf.motd, sizeof(d2gsconf.motd));
-	if (RegkeyReadString(hKey, REGKEY_MOTD, strbuf, sizeof(strbuf)))
-		strncpy(d2gsconf.motd, strbuf, sizeof(d2gsconf.motd)-1);
-
 	result = TRUE;
+	if (!RegkeyOpen(key, lpSubKey, &hKey, KEY_READ)) {
+		D2GSEventLog("D2GSReadConfig", "Can't open registry key '\\\\HKEY_LOCAL_MACHINE\\%s'", REGKEY_ROOT);
+		return FALSE;
+	}
 
+	if (confs == 0)
+	{
+		goto tocloseregkey;
+	}
+
+	while (confs->KeyName != 0)
+	{
+		switch (confs->Type-1)
+		{
+		// 1,3
+		case 0:
+		case 2:
+			if (!RegkeyReadDWORD(hKey, confs->KeyName, &dwval))
+			{
+				D2GSEventLog("D2GSLoadRegConfig", "Can't read key '%s', set default value %s", confs->KeyName, confs->DefaultValue);
+				*((DWORD*)confs->ValuePtr) = atoi(confs->DefaultValue);
+			}
+			else
+			{
+				*((DWORD*)confs->ValuePtr) = dwval;
+			}
+			break;
+		// 2,5-8
+		case 1:
+		case 4:
+		case 5:
+		case 6:
+		case 7:
+			D2GSEventLog("D2GSLoadRegConfigs", "Unknow conf_type for %s", confs->KeyName);
+			break;
+		case 3:
+			if (!RegkeyReadString(hKey, confs->KeyName, strbuf, sizeof(strbuf)))
+			{
+				D2GSEventLog("D2GSLoadRegConfigs", "Can't read key '%s', set default value %s", confs->KeyName, confs->DefaultValue);
+				strncpy((char*)strbuf, confs->DefaultValue, 0xFF);
+				strbuf[0xFF] = 0;
+			}
+			strcpy((char*)confs->ValuePtr, strbuf);
+			break;
+		case 8:
+			if (!RegkeyReadDWORD(hKey, confs->KeyName, &dwval))
+			{
+				D2GSEventLog("D2GSLoadRegConfigs", "Can't read key '%s', set default value %s", confs->KeyName, confs->DefaultValue);
+				*((WORD*)confs->ValuePtr) = (WORD)atoi(confs->DefaultValue);
+			}
+			else
+			{
+				*((WORD*)confs->ValuePtr) = (WORD)dwval;
+			}
+			break;
+		case 9:
+			if (!RegkeyReadString(hKey, confs->KeyName, strbuf, sizeof(strbuf))) {
+				D2GSEventLog("D2GSLoadRegConfigs", "Can't read key '%s'", confs->DefaultValue);
+				strncpy((char*)strbuf, confs->DefaultValue, 0xFF);
+				strbuf[0xFF] = 0;
+			}
+			ipaddr = inet_addr(strbuf);
+			if (ipaddr == INADDR_NONE) 
+			{
+				D2GSEventLog("D2GSReadConfig", "Invalid ip address '%s'", strbuf);
+				goto tocloseregkey;
+			}
+			*(DWORD*)(confs->ValuePtr) = ipaddr;
+			break;
+		default:
+			D2GSEventLog("D2GSLoadRegConfigs", "Unknow conf_type for %s", confs->KeyName);
+			break;
+		}
+		confs += 1;
+	}
 tocloseregkey:
 	RegkeyClose(hKey);
 	return result;
+}
 
+int D2GSReadConfig(void)
+{
+	d2gsconf.enablegslog = TRUE;
+	if (!D2GSLoadConfigFromReg(HKEY_LOCAL_MACHINE, REGKEY_ROOT, gConfigMap))
+	{
+		D2GSEventLog("D2GSReadConfig", "failed loading configurations from registry");
+		return 0;
+	}
+	
+	d2gsconf.d2dbsport = htons(d2gsconf.d2dbsport);
+	d2gsconf.d2csport = htons(d2gsconf.d2csport);
+	d2gsconf.adminport = htons(d2gsconf.adminport);
+	d2gsconf.gemaxgames = 2 * d2gsconf.gsmaxgames + 0xc8;
+	d2gsconf.curgsmaxgames = 0;
+	return TRUE;
 } /* End of D2GSReadConfig() */
 
 
@@ -420,5 +358,103 @@ int D2GSSetMaxGames(DWORD maxgames)
 	return D2GSSetConfigDWORD(REGKEY_MAXGAMES, maxgames);
 
 } /* End of D2GSSetMaxGameLife() */
+
+/*********************************************************************
+ * Purpose: to set the Max Prefer Users
+ * Return: TRUE(success) or FALSE(failed)
+ *********************************************************************/
+int D2GSSetMaxPreferUsers(DWORD maxusers)
+{
+	d2gsconf.maxpreferusers = maxusers;
+	return D2GSSetConfigDWORD(REGKEY_MAXPREFERUSERS, maxusers);
+
+} /* End of D2GSSetMaxPreferUsers() */
+
+/*********************************************************************
+ * Purpose: set multi cpu mask
+ * Return: NONE
+ *********************************************************************/
+DWORD D2GSSetMultiCpuMask(int mask)
+{
+	DWORD ret = D2GSSetConfigDWORD(REGKEY_MULTICPUMASK, mask);
+	if (ret)
+	{
+		d2gsconf.multicpumask = mask;
+	}
+	return ret;
+}
+
+/*********************************************************************
+ * Purpose: set enable gs log
+ * Return: NONE
+ *********************************************************************/
+DWORD D2GSSetEnableGSLog(int enable)
+{
+	DWORD ret = D2GSSetConfigDWORD(REGKEY_ENABLEGSLOG, enable);
+	if (ret)
+	{
+		d2gsconf.enablegslog = enable;
+	}
+	return ret;
+}
+
+/*********************************************************************
+ * Purpose: set autoupdate
+ * Return: NONE
+ *********************************************************************/
+void D2GSSetAutoUpdate(int enable)
+{
+	gAutoUpdate.AutoUpdate = enable;
+	D2GSSetConfigDWORD(REGKEY_AUTOUPDATE, enable);
+}
+
+/*********************************************************************
+ * Purpose: set autoupdatever
+ * Return: NONE
+ *********************************************************************/
+void D2GSSetAutoUpdateVer(int ver)
+{
+	gAutoUpdate.AutoUpdateVer = ver;
+	D2GSSetConfigDWORD(REGKEY_AUTOUPDATEVER, ver);
+}
+
+/*********************************************************************
+ * Purpose: set autoupdatetimeout
+ * Return: NONE
+ *********************************************************************/
+void D2GSSetAutoUpdateTimeout(int timeout)
+{
+	gAutoUpdate.AutoUpdateTimeout = timeout;
+	D2GSSetConfigDWORD(REGKEY_AUTOUPDATE_TIMEOUT, timeout);
+}
+
+/*********************************************************************
+ * Purpose: set autoupdateurl
+ * Return: NONE
+ *********************************************************************/
+void D2GSSetAutoUpdateUrl(const char* url)
+{
+	strcpy(gAutoUpdate.AutoUpdateUrl, url);
+	D2GSSetConfigString(REGKEY_AUTOUPDATE_URL, url);
+}
+
+/*********************************************************************
+ * Purpose: Init from conf faile
+ * Return: TRUE(success) or FALSE(failed)
+ *********************************************************************/
+void D2GSInitFromConfig()
+{
+	char buffer[260] = { 0 };
+	const D2GEInitResult* ret = 0;
+	snprintf(buffer, 259, "%s\\%s", PathName, d2gsconf.serverconffile);
+	buffer[259] = 0;
+	D2GSLoadConfigWrapper(buffer);
+	ret = D2GSInitConfigWrapper();
+	if (ret->bHasMsg)
+	{
+		snprintf(gInitConfMsg, 0xFF, "\xFF c9The World Event enables on this server. The key item is \"%s\" \xFF cl", (UCHAR*)(ret+1));
+	}
+}
+
 
 

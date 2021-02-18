@@ -8,7 +8,7 @@
 #include "vars.h"
 
 
-#ifdef DEBUG
+#if DEBUG
 
 static DWORD	gdwTotalCount=0;
 static BOOL		DebugDumpParam(LPCSTR lpName, DWORD dwValue);
@@ -19,13 +19,13 @@ extern void DebugEventCallback(char const * module, int count, ...)
 	va_list		ap;
 	int		i,value;
 	char		* name;
-	char		function[MAX_LINE_LEN];
+	char		function[MAX_LINE_LEN] = {0};
 
 	if (!(d2gsconf.debugeventcallback)) return;
 
 	GetLocalTime(&st);
 	D2GEEventLog("DebugEventCallback","Event Called From Module \"%s\"",module);
-	fprintf(hexstrm,"%d: Checking Module \"%s\" (%d)\tTime:%d.%d.%d.%d\n",\
+	fprintf(hexstrm,"%d: Checking Module \"%s\" (%u)\tTime:%u.%u.%u.%u\n",\
 			gdwTotalCount++,module,count,st.wHour,st.wMinute,\
 			st.wSecond,st.wMilliseconds);
 	sprintf (function,"%s(",module);
@@ -74,22 +74,22 @@ extern void DebugNetPacket(D2GSPACKET *lpPacket)
 	if (!hexstrm) return;
 
 	GetLocalTime(&st);
-	sprintf(timestr, "    Time %d:%d:%d.%d",
+	sprintf(timestr, "    Time %u:%u:%u.%u",
 		st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
 
 	switch(lpPacket->peer)
 	{
 	case PACKET_PEER_RECV_FROM_D2CS:
-		fprintf(hexstrm, "From D2CS %d bytes:%s\n", lpPacket->datalen, timestr);
+		fprintf(hexstrm, "From D2CS %u bytes:%s\n", lpPacket->datalen, timestr);
 		break;
 	case PACKET_PEER_SEND_TO_D2CS:
-		fprintf(hexstrm, "To D2CS %d bytes:%s\n", lpPacket->datalen, timestr);
+		fprintf(hexstrm, "To D2CS %u bytes:%s\n", lpPacket->datalen, timestr);
 		break;
 	case PACKET_PEER_RECV_FROM_D2DBS:
-		fprintf(hexstrm, "From D2DBS %d bytes:%s\n", lpPacket->datalen, timestr);
+		fprintf(hexstrm, "From D2DBS %u bytes:%s\n", lpPacket->datalen, timestr);
 		break;
 	case PACKET_PEER_SEND_TO_D2DBS:
-		fprintf(hexstrm, "To D2DBS %d bytes:%s\n", lpPacket->datalen, timestr);
+		fprintf(hexstrm, "To D2DBS %u bytes:%s\n", lpPacket->datalen, timestr);
 		break;
 	}
 	if (lpPacket->datalen>0)

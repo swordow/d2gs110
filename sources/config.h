@@ -9,11 +9,13 @@
 #define REGKEY_D2DBSIP					"D2DBSIP"
 #define REGKEY_D2DBSPORT				"D2DBSPort"
 #define REGKEY_MAXGAMES					"MaxGames"
+#define REGKEY_MAXPREFERUSERS			"MaxPreferUsers"
 #define REGKEY_ENABLENTMODE				"EnableNTMode"
 #define REGKEY_ENABLEGEPATCH			"EnableGEPatch"
 #define REGKEY_ENABLEPRECACHEMODE		"EnablePreCacheMode"
 #define REGKEY_ENABLEGELOG				"EnableGELog"
 #define REGKEY_ENABLEGEMSG				"EnableGEMsg"
+#define REGKEY_ENABLEGSLOG				"EnableGSLog"
 #define REGKEY_DEBUGNETPACKET			"DebugNetPacket"
 #define REGKEY_DEBUGEVENTCALLBACK		"DebugEventCallback"
 #define REGKEY_IDLESLEEP				"IdleSleep"
@@ -28,6 +30,12 @@
 #define REGKEY_GSSHUTDOWNINTERVAL		"GSShutdownInterval"
 #define REGKEY_MOTD						"MOTD"
 #define REGKEY_MULTICPUMASK				"MultiCPUMask"
+#define REGKEY_MAX_PACKET_PER_SECOND	"MaxPacketPerSecond"
+#define REGKEY_SERVER_CONF_FILE			"ServerConfFile"
+#define REGKEY_AUTOUPDATE				"AutoUpdate"
+#define REGKEY_AUTOUPDATEVER			"AutoUpdateVer"
+#define REGKEY_AUTOUPDATE_TIMEOUT		"AutoUpdateTimeout"
+#define REGKEY_AUTOUPDATE_URL			"AutoUpdateUrl"
 
 
 /* return value used by the functions */
@@ -51,6 +59,9 @@ int  D2GSSetConfigString(LPCSTR keyname, LPCSTR str);
 int  D2GSSetMaxGameLife(DWORD maxgamelife);
 int  D2GSSetAdminPassword(LPCSTR password);
 int D2GSSetMaxGames(DWORD maxgames);
-
-
+DWORD D2GSSetMultiCpuMask(int mask);
+DWORD D2GSSetEnableGSLog(int enable);
+void D2GSInitFromConfig();
+int D2GSSetMaxPreferUsers(DWORD maxusers);
+DWORD D2GSGetShutdownStatus();
 #endif /* INCLUDED_CONFIG_H */

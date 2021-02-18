@@ -17,7 +17,7 @@ static DWORD CheckFile(DWORD dwKey, LPDWORD pdwChecksum, LPCSTR lpFileName);
 
 extern DWORD VersionCheck(void)
 {
-	DWORD	dwChecksum, dwKey;
+	DWORD	dwChecksum;
 	CHAR	temp[MAX_PATH];
 	DWORD	i;
 
@@ -25,12 +25,11 @@ extern DWORD VersionCheck(void)
 	if (!GetModuleFileName(NULL,temp,sizeof(temp))) {
 		return FALSE;
 	}
-	dwKey=DEFAULT_VERSIONCHECK_KEY;
-	if (!CheckFile(dwKey, &dwChecksum, temp)) {
+	if (!CheckFile(DEFAULT_VERSIONCHECK_KEY, &dwChecksum, temp)) {
 		return FALSE;
 	}
 	for (i=0; CheckFileList[i]; i++) {
-		if (!CheckFile(dwKey, &dwChecksum, CheckFileList[i])) {
+		if (!CheckFile(DEFAULT_VERSIONCHECK_KEY, &dwChecksum, CheckFileList[i])) {
 			return FALSE;
 		}
 	}
@@ -50,10 +49,13 @@ static DWORD CheckFile(DWORD dwKey, LPDWORD pdwChecksum, LPCSTR lpFileName)
 	}
 	fseek(fp,0,SEEK_END);
 	dwSize=ftell(fp);
+	
 	if (dwSize>DEFAULT_CHECK_SIZE) temp=DEFAULT_CHECK_SIZE;
 	else temp=dwSize;
+
 	dwCount=(temp/DEFAULT_PIECE_NUMBER)/sizeof(data);
-	for (j=0; j<DEFAULT_PIECE_NUMBER; j++) {
+	for (j=0; j<DEFAULT_PIECE_NUMBER; j++) 
+	{
 		fseek(fp,(dwSize/DEFAULT_PIECE_NUMBER)*j,SEEK_SET);
 		for (i=0; i<dwCount; i++) {
 			fread(&data,1,sizeof(data),fp);

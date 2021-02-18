@@ -3,13 +3,14 @@
 #include "eventlog.h"
 #include "d2gamelist.h"
 #include "net.h"
+#include "vars.h"
 #include "timer.h"
 
 
 /* vars */
 static HANDLE	hStopEvent = NULL;
 static HANDLE	ghTimerThread = NULL;
-
+extern void D2GSResetWatchDogCounter();
 
 /*********************************************************************
  * Purpose: to initialize the timer
@@ -73,6 +74,18 @@ int CleanupRoutineForTimer(void)
  * Purpose: timer processor
  * Return: return value of the thread
  *********************************************************************/
+void D2GSCheckTimerCount()
+{
+	static DWORD count = 0;
+	count++;
+	if (count >= 0x14)
+	{
+		count = 0;
+		EnterCriticalSection(&csGameList);
+		D2GSResetWatchDogCounter();
+		LeaveCriticalSection(&csGameList);
+	}
+}
 DWORD WINAPI D2GSTimerProcessor(LPVOID lpParameter)
 {
 	DWORD	dwWait;
@@ -80,25 +93,29 @@ DWORD WINAPI D2GSTimerProcessor(LPVOID lpParameter)
 	while(TRUE)
 	{
 		dwWait = WaitForSingleObject(hStopEvent, TIMER_TICK_IN_MS);
-		if (dwWait==WAIT_FAILED) {
+		if (dwWait==WAIT_FAILED) 
+		{
 			D2GSEventLog("D2GSTimerProcessor",
 				"WaitForSingleObject failed. Code: %lu", GetLastError());
-			continue;
-		} else if (dwWait==WAIT_OBJECT_0) {
+		} 
+		else if (dwWait==WAIT_OBJECT_0) 
+		{
 			/* stop event be set, quit */
 			D2GSEventLog("D2GSTimerProcessor", "Terminate timer thread");
 			return TRUE;
-		} else if (dwWait==WAIT_TIMEOUT) {
+		} 
+		else if (dwWait==WAIT_TIMEOUT) 
+		{
 			/* a tick passed, call the routine to do something */
 			D2GSPendingCharTimerRoutine();
 			D2GSGetDataRequestTimerRoutine();
 			D2GSCalculateNetStatistic();
 			D2GSSendMOTD();
-		} else {
-			continue;
+			D2GSCheckGameLife();
+			D2GSCheckTimerCount();
+			D2GSShutdownTimer();
 		}
 	}
 	return 0;
 
 } /* End of D2GSTimerProcessor() */
-

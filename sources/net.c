@@ -7,6 +7,7 @@
 #include "eventlog.h"
 #include "vars.h"
 #include "net.h"
+#include "d2ge.h"
 #include "handle_s2s.h"
 #include "debug.h"
 #include "d2gamelist.h"
@@ -33,6 +34,17 @@ static CRITICAL_SECTION	csNet;
 /* for statistic */
 static D2GSNETSTATISTIC	d2netstat;
 
+void D2GSSetDifficultyCount(int difficulty, int R0/*=0*/, int R1/*=0xFFFFFFFF*/)
+{
+	int diffIdx = difficulty % 3; // 0, 1, 2
+	gD2GSInfo.dwGameDifficultyCount[diffIdx][0] += R0;
+	gD2GSInfo.dwGameDifficultyCount[diffIdx][1] += R1;
+}
+
+void D2GSInitCountDifficulty()
+{
+	ZeroMemory(gD2GSInfo.dwGameDifficultyCount, sizeof(gD2GSInfo.dwGameDifficultyCount));
+}
 
 /*********************************************************************
  * Purpose: to initialize the net sub-system
@@ -143,7 +155,7 @@ int CleanupRoutineForNet(void)
  *********************************************************************/
 DWORD WINAPI D2GSConnectToD2xS(LPVOID lpParameter)
 {
-	u_int				sock;
+	u_int				sock = (u_int)(lpParameter);
 	struct sockaddr_in	sin;
 	WSAEVENT			hConnEvent;
 	WSANETWORKEVENTS	NetEvents;
@@ -156,23 +168,29 @@ DWORD WINAPI D2GSConnectToD2xS(LPVOID lpParameter)
 
 	flag = (DWORD)lpParameter;
 
-	if (bConnectedToCS) CloseConnectionToD2CS();
+	if (bConnectedToCS)
+	{
+		CloseConnectionToD2CS();
+	}
 	hConnEvent = WSACreateEvent();
-	if (hConnEvent==WSA_INVALID_EVENT) {
+	if (hConnEvent==WSA_INVALID_EVENT) 
+	{
 		D2GSEventLog("D2GSConnectToD2xS",
 			"Can't WSACreateEvent. Code: %d", WSAGetLastError());
 		return FALSE;
 	}
 
 	/* create new socket */
-	while(WaitForSingleObject(hStopEvent, 0)!=WAIT_OBJECT_0) {
-		sock = socket(AF_INET, SOCK_STREAM, 0);
-		if (sock==INVALID_SOCKET) {
-			D2GSEventLog("D2GSConnectToD2xS",
-				"Can't create new socket. Code: %d", WSAGetLastError());
-			Sleep(DEFAULT_CONNECT_INTERVAL);
-			continue;
-		} else break;
+	while(WaitForSingleObject(hStopEvent, 0)!=WAIT_OBJECT_0) 
+	{
+		sock = WSASocket(AF_INET, SOCK_STREAM, 0, 0, 0, 0);
+		if (sock != INVALID_SOCKET)
+		{
+			break;
+		}
+		D2GSEventLog("D2GSConnectToD2xS",
+			"Can't create new socket. Code: %d", WSAGetLastError());
+		Sleep(DEFAULT_CONNECT_INTERVAL);
 	}
 
 	/* set socket keep alive option */
@@ -185,7 +203,8 @@ DWORD WINAPI D2GSConnectToD2xS(LPVOID lpParameter)
 	/* try to coonnect to D2xS */
 	while(WaitForSingleObject(hStopEvent, 0)!=WAIT_OBJECT_0)
 	{
-		if (WSAEventSelect(sock, hConnEvent, FD_CONNECT)) {
+		if (WSAEventSelect(sock, hConnEvent, FD_CONNECT)) 
+		{
 			D2GSEventLog("D2GSConnectToD2xS",
 				"Failed in WSAEventSelect when connecting. Code: %d", WSAGetLastError());
 			Sleep(DEFAULT_CONNECT_INTERVAL);
@@ -201,8 +220,10 @@ DWORD WINAPI D2GSConnectToD2xS(LPVOID lpParameter)
 			sin.sin_addr.s_addr = d2gsconf.d2dbsip;
 			sin.sin_port        = d2gsconf.d2dbsport;
 		}
-		if (connect(sock, (struct sockaddr *)&sin, sizeof(sin)) != 0) {
-			if (WSAGetLastError()!=WSAEWOULDBLOCK) {
+		if (WSAConnect(sock, (struct sockaddr *)&sin, sizeof(sin), 0, 0, 0, 0) != 0) 
+		{
+			if (WSAGetLastError()!=WSAEWOULDBLOCK) 
+			{
 				D2GSEventLog("D2GSConnectToD2xS", 
 					"Can't connect to %s. Code: %d", WSAGetLastError(),
 					(flag==D2CSERVER) ? "D2CS" : "D2DBS");
@@ -261,7 +282,10 @@ DWORD WINAPI D2GSConnectToD2xS(LPVOID lpParameter)
 
 	if (WaitForSingleObject(hStopEvent, 0)==WAIT_OBJECT_0) {
 		D2GSEventLog("D2GSConnectToD2xS", "Cancel connecting to D2CS");
-		if (sock!=INVALID_SOCKET) CloseConnectionToD2CS();
+		if (sock != INVALID_SOCKET)
+		{
+			CloseConnectionToD2CS();
+		}
 	}
 	WSACloseEvent(hConnEvent);
 	return TRUE;
@@ -282,7 +306,7 @@ void CloseConnectionToD2CS(void)
 	sockCS = INVALID_SOCKET;
 	bConnectedToCS = FALSE;
 	D2GSActive(FALSE);
-	D2GSEndAllGames();
+	D2GSEndAllGamesWrapper();
 	NRBInitialize(&nrbCS,  PACKET_PEER_RECV_FROM_D2CS);
 	NSBInitialize(&nsbCS,  PACKET_PEER_SEND_TO_D2CS);
 	D2GSEventLog("CloseConnectionToD2CS", "Close Connection to D2CS");
@@ -404,7 +428,7 @@ netloop:
 		while(TRUE)
 		{
 			if (NRBRemovePacketOut(&nrbCS, &packet)) break;
-#ifdef DEBUG
+#if DEBUG
 			DebugNetPacket(&packet);
 #endif
 			d2netstat.d2cs.recvpacket ++;
@@ -414,7 +438,7 @@ netloop:
 		while(TRUE)
 		{
 			if (NRBRemovePacketOut(&nrbDBS, &packet)) break;
-#ifdef DEBUG
+#if DEBUG
 			DebugNetPacket(&packet);
 #endif
 			d2netstat.d2dbs.recvpacket ++;
@@ -562,7 +586,8 @@ int D2GSSendNetData(NETSENDBUFFER *lpnsr)
 	NSBGetData(lpnsr, &buf, &datalen);
 	if (datalen) {
 		bytes = send(sock, buf, datalen, 0);
-		if (bytes<=0) {
+		if (bytes<=0) 
+		{
 			if (WSAGetLastError()==WSAEWOULDBLOCK) {
 				D2GSEventLog("D2GSSendNetData",
 					"socket of %s block, %u",
@@ -572,7 +597,8 @@ int D2GSSendNetData(NETSENDBUFFER *lpnsr)
 				D2GSEventLog("D2GSSendNetData", "send failed, code: %u", WSAGetLastError());
 				ret = -1;
 			}
-		} else if (bytes!=(int)datalen) {
+		} 
+		else if (bytes!=(int)datalen) {
 			NSBRemoveData(lpnsr, bytes);
 			//lpnsr->writable = FALSE;
 			D2GSEventLog("D2GSSendNetData",
@@ -605,7 +631,7 @@ int D2GSNetSendPacket(D2GSPACKET *lpPacket)
 	if (!lpPacket) return ERROR_BAD_PACKET_PTR;
 	if (lpPacket->datalen<=0) return 0;
 
-#ifdef DEBUG
+#if DEBUG
 	DebugNetPacket(lpPacket);
 #endif
 
@@ -877,9 +903,14 @@ int D2GSGetSockName(int server, DWORD *ipaddr, DWORD *port)
 	*ipaddr = *port = 0;
 
 	namelen = sizeof(name);
-	if (getsockname(sock, (struct sockaddr *)&name, &namelen))
+	if (getsockname(sock, (struct sockaddr*)&name, &namelen))
+	{
+		*ipaddr = 0;
+		*port = 0;
 		return -1;
-	else {
+	}
+	else 
+	{
 		*ipaddr = ntohl(name.sin_addr.s_addr);
 		*port   = (DWORD)(ntohs(name.sin_port));
 		return 0;
@@ -895,7 +926,6 @@ int D2GSGetSockName(int server, DWORD *ipaddr, DWORD *port)
 int D2GSGetConnectionStatus(void)
 {
 	int		status;
-
 	status = 0;
 	if (bConnectedToCS)  status |= D2CSERVER;
 	if (bConnectedToDBS) status |= D2DBSERVER;

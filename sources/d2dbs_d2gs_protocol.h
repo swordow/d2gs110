@@ -54,12 +54,18 @@ typedef struct {
 
 #define D2DBS_D2GS_GET_DATA_REPLY		0x31
 typedef struct {
+	//0x00
 	t_d2dbs_d2gs_header	h;
+	//0x08
 	bn_int				result;
+	//0x0C
 	bn_int				charcreatetime;
+	//0x10
 	bn_int				allowladder;
+	//0x14
 	bn_short			datatype;
 	bn_short			datalen;
+	//0x18
 	/* CharName */
 	/* data, length = datalen */
 } t_d2dbs_d2gs_get_data_reply;
@@ -71,11 +77,16 @@ typedef struct {
 #define D2GS_D2DBS_UPDATE_LADDER		0x32
 typedef struct {
 	t_d2dbs_d2gs_header	h;
+	//0x08
 	bn_int				charlevel;
+	//0x0C
 	bn_int				charexplow;
+	//0x10
 	bn_int				charexphigh;
+	//0x14
 	bn_short			charclass;
 	bn_short			charstatus;
+	//0x18
 	/* CharName */
 	/* RealmName */
 } t_d2gs_d2dbs_update_ladder;

@@ -137,6 +137,7 @@ int charlist_insert(unsigned char *charname, void *pCharInfo, void *pGameInfo)
 	if (!pcl) return -4;    /* no free memory available :( */
 	memset(pcl, 0, sizeof(D2CHARLIST));
 	strncpy(pcl->charname, charname, MAX_CHARNAME_LEN-1);
+	pcl->charname[MAX_CHARNAME_LEN - 1] = 0;
 	pcl->pCharInfo = pCharInfo;
 	pcl->pGameInfo = pGameInfo;
 

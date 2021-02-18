@@ -17,8 +17,13 @@
 /*===================================================================*/
 /* global variables */
 D2GSCONFIGS			d2gsconf;
+AutoUpdateSetting	gAutoUpdate;
 BOOL				bGERunning;
+HANDLE				hGEThread;
 CRITICAL_SECTION	csGameList;
+CRITICAL_SECTION	gsShutDown;
+const char*			gD2GEVersionString;
+char				PathName[260];
 /*===================================================================*/
 
 
@@ -33,9 +38,25 @@ int  CleanupRoutineForVars(void);
 int D2GSVarsInitialize(void)
 {
 	DWORD	val;
+	char* lastSlash = 0;
 
 	ZeroMemory(&d2gsconf, sizeof(d2gsconf));
+	ZeroMemory(&gAutoUpdate, sizeof(gAutoUpdate));
+
+	/* set current working dir */
+	ZeroMemory(PathName, 260);
+	GetModuleFileName(NULL, PathName, 260);
+
 	bGERunning = FALSE;
+	hGEThread = 0;
+
+	lastSlash = strrchr(PathName, '\\');
+	if (lastSlash)
+	{
+		(*(lastSlash)) = 0;
+		SetCurrentDirectory(PathName);
+		D2GSEventLog("D2GSInit", "Set current working directory to \"%s\"", PathName);
+	}
 
 	/* calculate file checksum */
 	val = VersionCheck();
@@ -56,12 +77,11 @@ int D2GSVarsInitialize(void)
 
 	if (CleanupRoutineInsert(CleanupRoutineForVars, "Global Variables")) {
 		return TRUE;
-	} else {
-		/* do some cleanup before quiting */
-		CleanupRoutineForVars();
-		return FALSE;
-	}
+	} 
 
+	/* do some cleanup before quiting */
+	CleanupRoutineForVars();
+	return FALSE;
 } /* End of D2GSVarsInitialize() */
 
 

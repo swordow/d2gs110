@@ -29,7 +29,7 @@ extern void __fastcall LeaveGame(LPGAMEDATA lpGameData, WORD wGameId, WORD wChar
 				LPCSTR lpAccountName, PLAYERDATA PlayerData,
 				PLAYERMARK PlayerMark)
 {
-	DebugEventCallback("LeaveGame",14, _D(lpGameData), _D(wGameId), _D(wCharClass),
+	DebugEventCallback("LeaveGame",15, _D(lpGameData), _D(wGameId), _D(wCharClass),
 			_D(dwCharLevel), _D(dwExpLow), _D(dwExpHigh), _D(wCharStatus),
 			_D(lpCharName), _D(lpCharPortrait), _D(bUnlock), _D(dwZero1),
 			_D(dwZero2), _D(lpAccountName), _D(PlayerData),_D(PlayerMark));
@@ -180,21 +180,37 @@ extern void __fastcall LoadComplete(WORD wGameId, LPCSTR lpCharName, BOOL bExpan
 
 extern PEVENTCALLBACKTABLE EventCallbackTableInit(void)
 {
+	//00
 	gEventCallbackTable.fpCloseGame=CloseGame;
+	//04
 	gEventCallbackTable.fpLeaveGame=LeaveGame;
+	//08
 	gEventCallbackTable.fpGetDatabaseCharacter=GetDatabaseCharacter;
+	//0C
 	gEventCallbackTable.fpSaveDatabaseCharacter=SaveDatabaseCharacter;
+	//10
 	gEventCallbackTable.fpServerLogMessage=ServerLogMessage;
+	//14
 	gEventCallbackTable.fpEnterGame=EnterGame;
-	gEventCallbackTable.fpFindPlayerToken=FindPlayerToken;
+	//18
+	gEventCallbackTable.fpFindPlayerToken = FindPlayerToken;
+	//1C
+	gEventCallbackTable.fpSaveDatabaseGuild = UnlockDatabaseCharacter;
+	//20
 	gEventCallbackTable.fpUnlockDatabaseCharacter=UnlockDatabaseCharacter;
-	gEventCallbackTable.fpRelockDatabaseCharacter=RelockDatabaseCharacter;
-	gEventCallbackTable.fpUpdateCharacterLadder=UpdateCharacterLadder;
-	gEventCallbackTable.fpUpdateGameInformation=UpdateGameInformation;
-	gEventCallbackTable.fpSetGameData=SetGameData;
-	gEventCallbackTable.fpReserved1=ReservedCallback1;
-	gEventCallbackTable.fpReserved2=ReservedCallback2;
-	gEventCallbackTable.fpSaveDatabaseGuild=SaveDatabaseGuild;
-	gEventCallbackTable.fpLoadComplete=LoadComplete;
+	//24
+	gEventCallbackTable.fpReserved1 = ReservedCallback1;
+	//28
+	gEventCallbackTable.fpUpdateCharacterLadder = UpdateCharacterLadder;
+	//2C
+	gEventCallbackTable.fpUpdateGameInformation = UpdateGameInformation;
+	//30
+	gEventCallbackTable.fpReserved2 = UnlockDatabaseCharacter;
+	//34
+	gEventCallbackTable.fpSetGameData = SetGameData;
+	//38
+	gEventCallbackTable.fpRelockDatabaseCharacter= UnlockDatabaseCharacter;
+	//3C
+	gEventCallbackTable.fpLoadComplete= UnlockDatabaseCharacter;
 	return &gEventCallbackTable;
 }
