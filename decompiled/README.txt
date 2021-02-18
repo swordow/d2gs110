@@ -1,0 +1,1 @@
+d2gs.exe decompiled with IDA PRO 7.5 SP3.
