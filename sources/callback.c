@@ -86,7 +86,7 @@ extern void __fastcall EnterGame(WORD wGameId, LPCSTR lpCharName, WORD wCharClas
 
 
 extern BOOL __fastcall FindPlayerToken(LPCSTR lpCharName, DWORD dwToken, WORD wGameId,
-					LPSTR lpAccountName, LPPLAYERDATA lpPlayerData)
+					LPSTR lpAccountName, LPPLAYERDATA lpPlayerData, void* unused1, void* unused2)
 {
 	DebugEventCallback("FindPlayerToken",5, _D(lpCharName), _D(dwToken), 
 			_D(wGameId), _D(lpAccountName), _D(lpPlayerData));

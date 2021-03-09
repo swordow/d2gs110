@@ -238,7 +238,7 @@ extern VOID __fastcall 	EnterGame(WORD wGameId, LPCSTR lpCharName, WORD wCharCla
 				DWORD dwCharLevel, DWORD dwZero);
 
 extern BOOL __fastcall 	FindPlayerToken(LPCSTR lpCharName, DWORD dwToken, WORD wGameId,
-					LPSTR lpAccountName, LPPLAYERDATA lpPlayerData);
+					LPSTR lpAccountName, LPPLAYERDATA lpPlayerData, void* unused1, void* unused2);
 
 extern VOID __fastcall 	UnlockDatabaseCharacter(LPGAMEDATA lpGameData, LPCSTR lpCharName,
 						LPCSTR lpAccountName);
