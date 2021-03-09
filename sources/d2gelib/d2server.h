@@ -216,7 +216,7 @@ extern LPD2GSINTERFACE QueryInterface(VOID);
 
 
 /* callback functions */
-extern VOID __fastcall 	CloseGame(WORD wGameId);
+extern VOID __fastcall 	CloseGame(WORD wGameId, DWORD dwClientTag, DWORD dwTotalEnter, DWORD dwGameLife);
 
 extern VOID __fastcall 	LeaveGame(LPGAMEDATA lpGameData, WORD wGameId, WORD wCharClass,
 				DWORD dwCharLevel, DWORD dwExpLow, DWORD dwExpHigh,

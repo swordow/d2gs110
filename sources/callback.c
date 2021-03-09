@@ -14,7 +14,7 @@
 EVENTCALLBACKTABLE	gEventCallbackTable;
 
 
-extern void __fastcall CloseGame(WORD wGameId)
+extern void __fastcall CloseGame(WORD wGameId, DWORD dwClientTag, DWORD dwTotalEnter, DWORD dwGameLife)
 {
 	DebugEventCallback("CloseGame",1, _D(wGameId));
 	D2GSCBCloseGame(wGameId);
