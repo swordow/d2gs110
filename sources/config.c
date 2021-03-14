@@ -29,7 +29,7 @@ static ConfigMap gConfigMap[] =
 	{REGKEY_D2CSIP					, 04, "192.168.1.1", d2gsconf.d2csipstr},
 	{REGKEY_D2CSIP					, 10, "192.168.1.1", &d2gsconf.d2csip},
 	{REGKEY_D2CSPORT				, 9, "6113"		,&d2gsconf.d2csport},
-	{REGKEY_D2DBSIP					, 04, "192.168.1.1" , d2gsconf.d2csipstr},
+	{REGKEY_D2DBSIP					, 04, "192.168.1.1" , d2gsconf.d2dbsipstr},
 	{REGKEY_D2DBSIP					, 10, "192.168.1.1" , &d2gsconf.d2dbsip},
 	{REGKEY_D2DBSPORT				, 9, "6114"		, &d2gsconf.d2dbsport},
 	{REGKEY_ENABLENTMODE			, 01, "1"			, &d2gsconf.enablentmode},
