@@ -1,7 +1,7 @@
 # Diablo II Game Server (D2GS)
 This repository contains changes to [pvpgn/d2gs109](https://github.com/pvpgn/d2gs109) that hope to make it work with margsod 1.11b build 46.
 
-I decompiled the d2gs.exe used in margsod 1.11b build 46 and updated the code logic mostly, but it crashed somewhere, and i dont have much time to fix the bug(:-(, some overflow occurs in some logic).
+I decompiled the d2gs.exe used in margsod 1.11b build 46 and updated the code logic mostly.
 
 ## History from RElesgoe's d2gs repo
 
